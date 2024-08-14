@@ -1,16 +1,18 @@
-// simulator.js
 const axios = require('axios');
-const { connectToDatabase, client } = require('./db');
+const { connectToDatabase } = require('./db');
+const { DateTime } = require('luxon');
 
-const interval = 100; // 100 milliseconds
-const delayThreshold = 5; // 5 minutes for delay alert
-const temperatureThreshold = 200; // Temperature threshold for warning alert (e.g., 100°C)
+const interval = 100; 
+const delayThreshold = 3; 
+const temperatureThreshold = 200; 
+const lowNetworkThreshold = 0.1; 
+const deviceHealthGoodThreshold = 1; 
 
 const routesToSimulate = [
   { iotId: 'RTD001', name: 'Colombo Fort to Kankesanthurai', bidirectional: false }
 ];
 
-// Function to calculate intermediate points
+
 const calculateIntermediatePoints = (start, end, steps) => {
   const latStep = (end.lat - start.lat) / steps;
   const lonStep = (end.lon - start.lon) / steps;
@@ -24,14 +26,14 @@ const calculateIntermediatePoints = (start, end, steps) => {
   return points;
 };
 
-// Function to simulate train movement
-const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, journeyDuration, interval, reverse = false) => {
+
+const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, totalDistance, journeyDuration, interval, reverse = false) => {
   let index = 0;
   const steps = 10;
   const totalPoints = route.length - 1;
   const routePoints = reverse ? route.slice().reverse() : route;
-  const startTime = new Date();
-
+  const startTime = DateTime.now().setZone('Asia/Colombo');
+  
   const moveTrain = async () => {
     if (index < totalPoints) {
       const start = routePoints[index];
@@ -40,27 +42,31 @@ const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, journeyDu
 
       for (let step = 0; step < intermediatePoints.length; step++) {
         const point = intermediatePoints[step];
-        const elapsedTime = (new Date() - startTime) / 1000 / 60; // Elapsed time in minutes
-        const remainingTime = journeyDuration - elapsedTime;
-
+        const distanceCovered = (index + step / steps) * (totalDistance / totalPoints);
+        const elapsedMinutes = (distanceCovered / totalDistance) * journeyDuration;
+        const timestamp = startTime.plus({ minutes: elapsedMinutes }).toISO();
+        
         let speed = Math.random() * (maxSpeed - minSpeed) + minSpeed;
-        const engineTemp = Math.random() * 100 + 20; // Simulate engine temperature
+        const engineTemp = Math.random() * 100 + 20; 
+        const networkStrength = Math.random() * 5; 
 
-        // Handle station stops
+        
         if (start.stopDuration > 0) {
-          speed = 0; // Stop at the station
+          speed = 0; 
           for (let i = 0; i < start.stopDuration * 1000 / interval; i++) {
-            const stopElapsed = i * interval / 1000 / 60; // Elapsed stop time in minutes
+            const stopElapsed = i * interval / 1000 / 60; 
 
             const data = {
               iotId: iotId,
-              latitude: start.lat, // Keep latitude the same during stop
-              longitude: start.lon, // Keep longitude the same during stop
+              latitude: start.lat, 
+              longitude: start.lon, 
               speed: speed,
               engineTemp: engineTemp,
               engineStatus: 'stopped',
-              timestamp: new Date().toISOString(),
-              networkStrength: Math.random() * 5 // Simulate network strength
+              timestamp: timestamp,
+              networkStrength: networkStrength,
+              deviceHealth: networkStrength > deviceHealthGoodThreshold ? 'Good' : 'Needs Attention',
+              locationAccuracy: 'High'
             };
 
             if (stopElapsed >= delayThreshold) {
@@ -69,6 +75,10 @@ const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, journeyDu
 
             if (engineTemp > temperatureThreshold) {
               console.log(`Warning Alert: High engine temperature detected (${engineTemp}°C) at Latitude: ${start.lat}, Longitude: ${start.lon}`);
+            }
+
+            if (networkStrength < lowNetworkThreshold) {
+              console.log(`Network Failure: Low network strength detected at Latitude: ${start.lat}, Longitude: ${start.lon}`);
             }
 
             try {
@@ -88,12 +98,18 @@ const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, journeyDu
             speed: speed,
             engineTemp: engineTemp,
             engineStatus: 'running',
-            timestamp: new Date().toISOString(),
-            networkStrength: Math.random() * 5 // Simulate network strength
+            timestamp: timestamp,
+            networkStrength: networkStrength,
+            deviceHealth: networkStrength > deviceHealthGoodThreshold ? 'Good' : 'Needs Attention',
+            locationAccuracy: 'High'
           };
 
           if (engineTemp > temperatureThreshold) {
             console.log(`Warning Alert: High engine temperature detected (${engineTemp}°C) at Latitude: ${point.lat}, Longitude: ${point.lon}`);
+          }
+
+          if (networkStrength < lowNetworkThreshold) {
+            console.log(`Network Failure: Low network strength detected at Latitude: ${point.lat}, Longitude: ${point.lon}`);
           }
 
           try {
@@ -103,13 +119,19 @@ const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, journeyDu
             console.error('Error posting data:', error.message);
           }
 
-          // Wait for the interval before sending the next data point
+          
+          if (Math.random() < 0.01) { 
+            console.log(`Emergency Alert: Emergency button pressed at Latitude: ${point.lat}, Longitude: ${point.lon}`);
+            
+          }
+
+          
           await new Promise(resolve => setTimeout(resolve, interval));
         }
       }
 
       index++;
-      setTimeout(moveTrain, interval); // Use interval here to maintain speed consistency
+      setTimeout(moveTrain, interval); 
     } else {
       console.log('Train has reached its destination.');
     }
@@ -118,7 +140,7 @@ const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, journeyDu
   moveTrain();
 };
 
-// Fetch routes and simulate trains
+
 const fetchRoutesAndSimulateTrains = async () => {
   try {
     const db = await connectToDatabase();
@@ -130,12 +152,12 @@ const fetchRoutesAndSimulateTrains = async () => {
       if (route && route.points) {
         console.log(`Route ${routeConfig.name} found. Starting simulation...`);
 
-        // Simulate train from Colombo to destination
-        simulateTrainMovement(route.points, routeConfig.iotId, route.maxSpeed, route.minSpeed, route.journeyDuration, interval);
+        
+        simulateTrainMovement(route.points, routeConfig.iotId, route.maxSpeed, route.minSpeed, route.totalDistance, route.journeyDuration, interval);
 
         if (routeConfig.bidirectional) {
-          // Simulate train from destination back to Colombo
-          simulateTrainMovement(route.points, routeConfig.iotId, route.maxSpeed, route.minSpeed, route.journeyDuration, interval, true);
+          
+          simulateTrainMovement(route.points, routeConfig.iotId, route.maxSpeed, route.minSpeed, route.totalDistance, route.journeyDuration, interval, true);
         }
 
       } else {
