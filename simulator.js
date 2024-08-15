@@ -2,17 +2,25 @@ const axios = require('axios');
 const { connectToDatabase } = require('./db');
 const { DateTime } = require('luxon');
 
-const interval = 100; 
-const delayThreshold = 3; 
-const temperatureThreshold = 200; 
-const lowNetworkThreshold = 0.1; 
-const deviceHealthGoodThreshold = 1; 
+const interval = 100; // 100 milliseconds
+const delayThreshold = 3; // 3 minutes for delay alert
+const temperatureThreshold = 200; // Temperature threshold for warning alert
+const lowNetworkThreshold = 0.1; // Threshold for network failure alert
+const deviceHealthGoodThreshold = 1; // Network strength above this is considered good
 
 const routesToSimulate = [
-  { iotId: 'RTD001', name: 'Colombo Fort to Kankesanthurai', bidirectional: false }
+ // { iotId: 'RTD001', name: 'Colombo Fort to Kandy', bidirectional: false },
+  //{ iotId: 'RTD002', name: 'Colombo Fort to Badulla', bidirectional: false },
+  { iotId: 'RTD003', name: 'Colombo Fort to Matara', bidirectional: true },
+  { iotId: 'RTD004', name: 'Colombo Fort to Avissawella', bidirectional: false },
+  { iotId: 'RTD005', name: 'Colombo Fort to Batticaloa', bidirectional: false },
+  //{ iotId: 'RTD006', name: 'Colombo Fort to Trincomalee', bidirectional: false },
+  //{ iotId: 'RTD007', name: 'Colombo Fort to Puttalam', bidirectional: false },
+  { iotId: 'RTD008', name: 'Colombo Fort to Kankesanthurai', bidirectional: false },
+  //{ iotId: 'RTD009', name: 'Badulla to Colombo Fort', bidirectional: false }
 ];
 
-
+// Function to calculate intermediate points
 const calculateIntermediatePoints = (start, end, steps) => {
   const latStep = (end.lat - start.lat) / steps;
   const lonStep = (end.lon - start.lon) / steps;
@@ -26,7 +34,7 @@ const calculateIntermediatePoints = (start, end, steps) => {
   return points;
 };
 
-
+// Function to simulate train movement
 const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, totalDistance, journeyDuration, interval, reverse = false) => {
   let index = 0;
   const steps = 10;
@@ -47,19 +55,19 @@ const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, totalDist
         const timestamp = startTime.plus({ minutes: elapsedMinutes }).toISO();
         
         let speed = Math.random() * (maxSpeed - minSpeed) + minSpeed;
-        const engineTemp = Math.random() * 100 + 20; 
-        const networkStrength = Math.random() * 5; 
+        const engineTemp = Math.random() * 100 + 20; // Simulate engine temperature
+        const networkStrength = Math.random() * 5; // Simulate network strength
 
-        
+        // Handle station stops
         if (start.stopDuration > 0) {
-          speed = 0; 
+          speed = 0; // Stop at the station
           for (let i = 0; i < start.stopDuration * 1000 / interval; i++) {
-            const stopElapsed = i * interval / 1000 / 60; 
+            const stopElapsed = i * interval / 1000 / 60; // Elapsed stop time in minutes
 
             const data = {
               iotId: iotId,
-              latitude: start.lat, 
-              longitude: start.lon, 
+              latitude: start.lat, // Keep latitude the same during stop
+              longitude: start.lon, // Keep longitude the same during stop
               speed: speed,
               engineTemp: engineTemp,
               engineStatus: 'stopped',
@@ -119,28 +127,28 @@ const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, totalDist
             console.error('Error posting data:', error.message);
           }
 
-          
-          if (Math.random() < 0.01) { 
+          // Simulate emergency alert
+          if (Math.random() < 0.01) { // Randomly trigger an emergency alert
             console.log(`Emergency Alert: Emergency button pressed at Latitude: ${point.lat}, Longitude: ${point.lon}`);
-            
+            // Handle emergency logic here (e.g., notify authorities)
           }
 
-          
+          // Wait for the interval before sending the next data point
           await new Promise(resolve => setTimeout(resolve, interval));
         }
       }
 
       index++;
-      setTimeout(moveTrain, interval); 
+      setTimeout(moveTrain, interval); // Use interval here to maintain speed consistency
     } else {
-      console.log('Train has reached its destination.');
+      console.log(`Train ${iotId} has reached its destination.`);
     }
   };
 
   moveTrain();
 };
 
-
+// Fetch routes and simulate trains
 const fetchRoutesAndSimulateTrains = async () => {
   try {
     const db = await connectToDatabase();
@@ -150,14 +158,14 @@ const fetchRoutesAndSimulateTrains = async () => {
       const route = await routesCollection.findOne({ trainRoute: routeConfig.name });
 
       if (route && route.points) {
-        console.log(`Route ${routeConfig.name} found. Starting simulation...`);
+        console.log(`Route ${routeConfig.name} found. Starting simulation for ${routeConfig.iotId}...`);
 
-        
+        // Simulate train from start to end
         simulateTrainMovement(route.points, routeConfig.iotId, route.maxSpeed, route.minSpeed, route.totalDistance, route.journeyDuration, interval);
 
         if (routeConfig.bidirectional) {
-          
-          simulateTrainMovement(route.points, routeConfig.iotId, route.maxSpeed, route.minSpeed, route.totalDistance, route.journeyDuration, interval, true);
+          // Simulate train from end to start (reverse direction)
+          simulateTrainMovement(route.points, routeConfig.iotId + '_REV', route.maxSpeed, route.minSpeed, route.totalDistance, route.journeyDuration, interval, true);
         }
 
       } else {
