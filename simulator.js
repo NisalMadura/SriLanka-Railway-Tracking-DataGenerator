@@ -9,15 +9,15 @@ const lowNetworkThreshold = 0.1; // Threshold for network failure alert
 const deviceHealthGoodThreshold = 1; // Network strength above this is considered good
 
 const routesToSimulate = [
- // { iotId: 'RTD001', name: 'Colombo Fort to Kandy', bidirectional: false },
+  //{ iotId: 'RTD001', name: 'Colombo Fort to Kandy', bidirectional: false },
   //{ iotId: 'RTD002', name: 'Colombo Fort to Badulla', bidirectional: false },
   { iotId: 'RTD003', name: 'Colombo Fort to Matara', bidirectional: true },
   { iotId: 'RTD004', name: 'Colombo Fort to Avissawella', bidirectional: false },
   { iotId: 'RTD005', name: 'Colombo Fort to Batticaloa', bidirectional: false },
   //{ iotId: 'RTD006', name: 'Colombo Fort to Trincomalee', bidirectional: false },
-  //{ iotId: 'RTD007', name: 'Colombo Fort to Puttalam', bidirectional: false },
+  { iotId: 'RTD007', name: 'Colombo Fort to Puttalam', bidirectional: false },
   { iotId: 'RTD008', name: 'Colombo Fort to Kankesanthurai', bidirectional: false },
-  //{ iotId: 'RTD009', name: 'Badulla to Colombo Fort', bidirectional: false }
+  { iotId: 'RTD009', name: 'Badulla to Colombo Fort', bidirectional: false }
 ];
 
 // Function to calculate intermediate points
