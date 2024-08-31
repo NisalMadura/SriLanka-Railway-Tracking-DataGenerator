@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-//const interval = 100; 
+const interval = 100; 
 const delayThreshold = 3; 
 const temperatureThreshold = 200; 
 const lowNetworkThreshold = 0.1; 
@@ -45,9 +45,8 @@ const calculateIntermediatePoints = (start, end, steps) => {
   return points;
 };
 
-// Function to simulate train movement
-const interval = 50; 
-const timeMultiplier = 2; 
+
+const timeMultiplier = 4; 
 
 const simulateTrainMovement = async (route, iotId, maxSpeed, minSpeed, totalDistance, journeyDuration, interval, reverse = false) => {
   let index = 0;
